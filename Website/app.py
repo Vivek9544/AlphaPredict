@@ -1,3 +1,4 @@
+from jinja2 import defaults
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -34,6 +35,10 @@ def process_stock_prediction(stock):
     
     # Download stock data
     df = yf.download(stock, start=start, end=end)
+
+    # Flatten MultiIndex columns returned by newer versions of yfinance
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = df.columns.get_level_values(0)
     
     # Descriptive Data
     data_desc = df.describe()
@@ -75,7 +80,14 @@ def process_stock_prediction(stock):
     # Compute ML evaluation metrics
     rmse = np.sqrt(mean_squared_error(y_test, y_predicted))
     mae = mean_absolute_error(y_test, y_predicted)
-    mape = mean_absolute_percentage_error(y_test, y_predicted)
+
+    # Ignore zero values while computing MAPE
+    mask = y_test != 0
+    mape = mean_absolute_percentage_error(
+        y_test[mask],
+        y_predicted[mask]
+    )
+
     r2 = r2_score(y_test, y_predicted)
     
     return {
@@ -168,47 +180,50 @@ def index():
 
 @app.route('/api/predict', methods=['POST'])
 def api_predict():
-    data = request.get_json()
-    if not data or 'ticker' not in data:
-        return jsonify({"error": "No ticker provided"}), 400
-    
-    ticker = data['ticker']
-    if not ticker:
-        ticker = 'GOOG'
-        
-    # Run prediction pipeline
-    result = process_stock_prediction(ticker)
-    
-    df = result['df']
-    data_desc = result['data_desc']
-    ema20 = result['ema20']
-    ema50 = result['ema50']
-    ema100 = result['ema100']
-    ema200 = result['ema200']
-    y_predicted = result['y_predicted']
-    
-    # Calculate padding so that predicted_prices aligns with the correct dates
-    # (Since y_predicted only exists for the test data, i.e., last 30%)
-    total_dates = len(df)
-    predicted_length = len(y_predicted.flatten())
-    padding = [None] * (total_dates - predicted_length)
-    aligned_predicted_prices = padding + y_predicted.flatten().tolist()
-    
-    # Package into JSON
-    response_data = {
-        "ticker": ticker,
-        "dates": df.index.strftime('%Y-%m-%d').tolist(),
-        "actual_prices": df.Close.tolist(),
-        "predicted_prices": aligned_predicted_prices,
-        "ema20": ema20.tolist(),
-        "ema50": ema50.tolist(),
-        "ema100": ema100.tolist(),
-        "ema200": ema200.tolist(),
-        "statistics": data_desc.to_dict(),
-        "metrics": result['metrics']
-    }
-    
-    return jsonify(response_data)
+    try:
+        data = request.get_json()
+        if not data or 'ticker' not in data:
+            return jsonify({"error": "No ticker provided"}), 400
+
+        ticker = data['ticker']
+        if not ticker:
+            ticker = 'GOOG'
+
+        # Run prediction pipeline
+        result = process_stock_prediction(ticker)
+
+        df = result['df']
+        data_desc = result['data_desc']
+        ema20 = result['ema20']
+        ema50 = result['ema50']
+        ema100 = result['ema100']
+        ema200 = result['ema200']
+        y_predicted = result['y_predicted']
+
+        total_dates = len(df)
+        predicted_length = len(y_predicted.flatten())
+        padding = [None] * (total_dates - predicted_length)
+        aligned_predicted_prices = padding + y_predicted.flatten().tolist()
+
+        response_data = {
+            "ticker": ticker,
+            "dates": df.index.strftime('%Y-%m-%d').tolist(),
+            "actual_prices": df["Close"].tolist(),
+            "predicted_prices": aligned_predicted_prices,
+            "ema20": ema20.tolist(),
+            "ema50": ema50.tolist(),
+            "ema100": ema100.tolist(),
+            "ema200": ema200.tolist(),
+            "statistics": data_desc.to_dict(),
+            "metrics": result["metrics"]
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/download/<filename>')
 def download_file(filename):

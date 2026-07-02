@@ -21,8 +21,15 @@ const Home = () => {
       const response = await axios.post('http://localhost:5000/api/predict', {
         ticker: ticker.trim().toUpperCase()
       });
+      console.log(response.data); // To see the data coming from Flask
 
-      const { actual_prices, predicted_prices } = response.data;
+      console.log(Object.keys(response.data));
+
+      const actual_prices = response.data.actual_prices;
+      const predicted_prices = response.data.predicted_prices;
+
+      console.log("actual_prices:", actual_prices);
+      console.log("predicted_prices:", predicted_prices);
       
       // Extract the most recent known actual price
       const currentPrice = actual_prices[actual_prices.length - 1];
