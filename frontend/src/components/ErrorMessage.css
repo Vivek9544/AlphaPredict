@@ -1,0 +1,35 @@
+.error-container {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-left: 4px solid var(--danger-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  animation: shake 0.5s ease-in-out;
+}
+
+.error-icon {
+  font-size: 1.5rem;
+  margin-top: 0.2rem;
+}
+
+.error-content h3 {
+  color: #fca5a5;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.error-content p {
+  color: var(--text-primary);
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
